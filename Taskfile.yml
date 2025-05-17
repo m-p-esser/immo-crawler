@@ -1,0 +1,28 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GCLOUD_PROJECT: 'side-projects-459513'
+  SERVICE_ACCOUNT: 'etl-developer'  
+
+tasks:
+  default:
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+
+  enable-gcp-services:
+    cmds:
+      - echo "Enabling GCP services"
+      - gcloud services enable storage-component.googleapis.com
+      - gcloud services enable secretmanager.googleapis.com
+
+  setup-vm:
+    uv run playwright install
+
+  bind-iam-policies-to-deployment-service-account:
+    cmds:
+      - echo "Bind IAM Policies to Service account {{.SERVICE_ACCOUNT}}"
+      - gcloud projects add-iam-policy-binding {{.GCLOUD_PROJECT}} --member=serviceAccount:{{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com --role="roles/storage.admin"
+      - gcloud projects add-iam-policy-binding {{.GCLOUD_PROJECT}} --member=serviceAccount:{{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com --role="roles/secretmanager.secretAccessor"
