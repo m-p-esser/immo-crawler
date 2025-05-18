@@ -1,4 +1,6 @@
 import asyncio
+from datetime import timedelta, datetime
+import pathlib
 
 from crawlee.crawlers import BeautifulSoupCrawler, BeautifulSoupCrawlingContext
 from crawlee.storages import RequestQueue, Dataset
@@ -8,7 +10,6 @@ from crawlee.fingerprint_suite import (
     ScreenOptions
 )
 from crawlee.sessions import SessionCookies, SessionPool
-from datetime import timedelta, datetime
 
 async def main() -> None:
     
@@ -103,6 +104,10 @@ async def main() -> None:
             crawler.stop()
         
     await crawler.run()
+    
+    output_dir = pathlib.Path.cwd() / 'output'
+    output_dir.mkdir(exist_ok=True)
+    
     await crawler.export_data_json(path="output/results.json")
     
 if __name__ == '__main__':
