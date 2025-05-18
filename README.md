@@ -19,6 +19,8 @@
 - Add pagination to Immowelt BS4 Crawler
 
 
-## Setup VM
-- Install Taskfile.dev
-- Install GCloud
+## Setup Airflow VM
+- Install GIT: `sudo apt install git`
+- Create SSH Key on VM: `ssh-keygen -t ed25519 -C "your_email@example.com"`
+- Clone Repo
+- Run setup-airflow-vm.sh
