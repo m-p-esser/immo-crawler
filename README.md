@@ -20,7 +20,5 @@
 
 
 ## Setup VM
-- Run Taskfile
-- Connect to VM
 - Install Taskfile.dev
 - Install GCloud
