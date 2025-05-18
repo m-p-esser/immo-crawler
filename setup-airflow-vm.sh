@@ -1,2 +1,8 @@
+# Install Go
+sudo apt-get update
+sudo apt-get install golang-go
+go --version
 # Install Taskfile
-sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
+go install github.com/go-task/task/v3/cmd/task@latest
+# Install UV Python Package Manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
