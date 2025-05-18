@@ -116,3 +116,8 @@ tasks:
       - echo "Current directory:"
       - pwd
       - ssh -i id_rsa emarcphilipp_gmail_com@$GCLOUD_AIRFLOW_VM_EXTERNAL_IP
+
+# Commands to interact with Docker
+  build-airflow-docker-image:
+   docker build -t $GCLOUD_REGION
+  # Continue https://www.perplexity.ai/search/how-can-i-enable-compute-engin-WLQaNWY1QIS8DmQyunaboQ
