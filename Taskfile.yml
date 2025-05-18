@@ -2,73 +2,101 @@
 
 version: '3'
 
-vars:
-  GCLOUD_PROJECT: 'side-projects-459513'
-  GCLOUD_DEFAULT_ZONE: 'europe-west4-a'
-  GCLOUD_DEFAULT_REGION: 'europe-west4'
+dotenv: ['.env']
 
-  # Move these variables to commands
-  SERVICE_ACCOUNT: 'etl-developer'  
-  ENVIRONMENT: 'test'
+vars:
+  SERVICE_ACCOUNT: 'etl-airflow-test'  
 
 tasks:
 
-  # setup-service-account
+# Commands to interact to activate/expand access rights
+  set-default-gcp-project:
+    desc: Set default GCP project 
+    cmds:
+      - echo "Setting default GCP project to '$GCLOUD_PROJECT'"
+      - gcloud config set project $GCLOUD_PROJECT
 
-  # setup-python:
-    
-  create-airflow-vm:
-    # Can i define command specific variables (?)
-    - gcloud compute instances create airflow-{{.ENVIRONMENT}}-vm-euwe4a-debian-408f \
-      --project={{.GCLOUD_PROJECT}} \
-      --zone={{.GCLOUD_DEFAULT_ZONE}}
-      --machine-type=e2-micro \
-      --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-      --metadata=enable-osconfig=TRUE \
-      --maintenance-policy=MIGRATE \
-      --provisioning-model=STANDARD \
-      --service-account={{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com \
-      --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append \
-      --create-disk=auto-delete=yes,boot=yes,device-name=airflow-{{.ENVIRONMENT}}-vm-euwe4a-debian-408f,image=projects/debian-cloud/global/images/debian-12-bookworm-v20250513,mode=rw,size=10,type=pd-balanced \
-      --no-shielded-secure-boot \
-      --shielded-vtpm \
-      --shielded-integrity-monitoring \
-      --labels=goog-ops-agent-policy=v2-x86-template-1-4-0,goog-ec-src=vm_add-gcloud \
-      --reservation-affinity=any
-    - gcloud compute instances ops-agents policies create goog-ops-agent-v2-x86-template-1-4-0-{{.GCLOUD_DEFAULT_ZONE}} \
-      --project={{.GCLOUD_PROJECT}} \
-      --zone={{.GCLOUD_DEFAULT_ZONE}}
-      --file=config.yaml \
-    - gcloud compute resource-policies create snapshot-schedule default-schedule-1 \
-      --project={{.GCLOUD_PROJECT}} \
-      --region={{.GCLOUD_DEFAULT_REGION}} \
-      --max-retention-days=14 \
-      --on-source-disk-delete=keep-auto-snapshots \
-      --daily-schedule \
-      --start-time=20:00 \
-    - gcloud compute disks add-resource-policies airflow-{{.ENVIRONMENT}}-vm-euwe4a-debian-408f \
-      --project={{.GCLOUD_PROJECT}} \
-      --zone={{.GCLOUD_DEFAULT_ZONE}}
-      --resource-policies=projects/{{.GCLOUD_PROJECT}}/regions/{{.GCLOUD_DEFAULT_REGION}}/resourcePolicies/default-schedule-1
+  set-main-account-as-default-gcp-account:
+    desc: Setting main account as default account for GCP
+    cmds:
+    - echo "Setting main account '$GCLOUD_MAIN_ACCOUNT' as default account for GCP"
+    - gcloud config set account $GCLOUD_MAIN_ACCOUNT
+
+  authenticate-with-gcp:
+    desc: Authenticate with GCP
+    cmds:
+    - gcloud auth login
 
   enable-gcp-services:
+    deps: [set-main-account-as-default-gcp-account]
+    desc: Enable GCP Services required for this repo 
     cmds:
-      # Does this skip already activated services (?)
       - echo "Enabling GCP services"
-      - gcloud services enable storage-component.googleapis.com
-      - gcloud services enable secretmanager.googleapis.com
-      - gcloud services enable compute.googleapis.com
+      - for: [
+        'storage-component.googleapis.com', 
+        'secretmanager.googleapis.com',
+        'compute.googleapis.com']
+        cmd: gcloud services enable {{.ITEM}}
+
+  create-service-account:
+    deps: [set-main-account-as-default-gcp-account]
+    desc: Create Service account
+    cmds:
+    - echo "Creating Service account {{.SERVICE_ACCOUNT}}"
+    - gcloud iam service-accounts create {{.SERVICE_ACCOUNT}}
+  
+  create-service-account-key-file:
+    desc: Create JSON Keyfile for Service account that can be used for authentification with GCP
+    cmds:
+    - echo "Creating Keyfile for Service account"
+    - mkdir -p .secrets
+    - gcloud iam service-accounts keys create ./.secrets/{{.SERVICE_ACCOUNT}}_keyfile.json --iam-account={{.SERVICE_ACCOUNT}}@$GCLOUD_PROJECT.iam.gserviceaccount.com
+    - echo "Created keyfile and stored it under './.secrets/{{.SERVICE_ACCOUNT}}_keyfile.json'"
+    
+  bind-iam-policies-to-service-account:
+    deps: [set-main-account-as-default-gcp-account]
+    desc: Give Service accounts access rights for GCP Services
+    cmds:
+      - echo "Bind IAM Policies to Service account {{.SERVICE_ACCOUNT}}"
+      - for: [
+        'roles/storage.admin', 'roles/secretmanager.secretAccessor', 'roles/compute.admin']
+        cmd: gcloud projects add-iam-policy-binding $GCLOUD_PROJECT --member=serviceAccount:{{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com --role={{.ITEM}}
+
+# Commands to interacte with Google Cloud VM    
+  create-and-configure-airflow-vm:
+    deps: [
+      set-main-account-as-default-gcp-account,
+      create-airflow-vm-instance,
+      # create-airflow-vm-ops-agent-policy,
+      create-airflow-vm-snapshot-schedule,
+      create-airflow-vm-disk
+    ]
+    desc: Create and configure GCP VM that will be used to run Airflow Jobs
+
+  create-airflow-vm-instance:
+    deps: [set-main-account-as-default-gcp-account]
+    desc: Create GCP VM that will be used to run Airflow Jobs
+    cmds:
+      - echo "Provisioning Google Cloud VM"
+      - gcloud compute instances create airflow-$ENVIRONMENT-vm-euwe4a-debian-408f \
+        --project=$GCLOUD_PROJECT \
+        --zone=$GCLOUD_DEFAULT_ZONE \
+        --region=$GCLOUD_DEFAULT_REGION \
+        --machine-type=e2-micro \
+        --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
+        --metadata=enable-osconfig=TRUE \
+        --maintenance-policy=MIGRATE \
+        --provisioning-model=STANDARD \
+        --service-account={{.SERVICE_ACCOUNT}}@$GCLOUD_PROJECT.iam.gserviceaccount.com \
+        --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append \
+        --create-disk=auto-delete=yes,boot=yes,device-name=airflow-$ENVIRONMENT-vm-euwe4a-debian-408f,image=projects/debian-cloud/global/images/debian-12-bookworm-v20250513,mode=rw,size=10,type=pd-balanced \
+        --no-shielded-secure-boot \
+        --shielded-vtpm \
+        --shielded-integrity-monitoring \
+        --labels=goog-ops-agent-policy=v2-x86-template-1-4-0,goog-ec-src=vm_add-gcloud \
+        --reservation-affinity=any
 
   setup-airflow-vm:
-    # Commands to run on the Airflow
     uv run playwright install
     # Install UV
     # Install Airflow
-
-  bind-iam-policies-to-deployment-service-account:
-    # Define command specific variables (to avoid giving the same account the same right again and again)
-    cmds:
-      - echo "Bind IAM Policies to Service account {{.SERVICE_ACCOUNT}}"
-      - gcloud projects add-iam-policy-binding {{.GCLOUD_PROJECT}} --member=serviceAccount:{{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com --role="roles/storage.admin"
-      - gcloud projects add-iam-policy-binding {{.GCLOUD_PROJECT}} --member=serviceAccount:{{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com --role="roles/secretmanager.secretAccessor"
-      - gcloud projects add-iam-policy-binding {{.GCLOUD_PROJECT}} --member=serviceAccount:{{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com --role="roles/compute.admin"
