@@ -1,0 +1,12 @@
+# Credentials
+.secrets/
+
+# Environment variables
+.env
+
+# Python
+.venv
+
+# Flat files
+output/
+storage/
