@@ -103,7 +103,7 @@ async def main() -> None:
             crawler.stop()
         
     await crawler.run()
-    await crawler.export_data_json(path="results.json")
+    await crawler.export_data_json(path="output/results.json")
     
 if __name__ == '__main__':
     asyncio.run(main())
