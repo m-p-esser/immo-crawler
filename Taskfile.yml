@@ -73,30 +73,46 @@ tasks:
     ]
     desc: Create and configure GCP VM that will be used to run Airflow Jobs
 
-  create-airflow-vm-instance:
-    deps: [set-main-account-as-default-gcp-account]
-    desc: Create GCP VM that will be used to run Airflow Jobs
-    cmds:
-      - echo "Provisioning Google Cloud VM"
-      - gcloud compute instances create airflow-$ENVIRONMENT-vm-euwe4a-debian-408f \
-        --project=$GCLOUD_PROJECT \
-        --zone=$GCLOUD_DEFAULT_ZONE \
-        --region=$GCLOUD_DEFAULT_REGION \
-        --machine-type=e2-micro \
-        --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-        --metadata=enable-osconfig=TRUE \
-        --maintenance-policy=MIGRATE \
-        --provisioning-model=STANDARD \
-        --service-account={{.SERVICE_ACCOUNT}}@$GCLOUD_PROJECT.iam.gserviceaccount.com \
-        --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append \
-        --create-disk=auto-delete=yes,boot=yes,device-name=airflow-$ENVIRONMENT-vm-euwe4a-debian-408f,image=projects/debian-cloud/global/images/debian-12-bookworm-v20250513,mode=rw,size=10,type=pd-balanced \
-        --no-shielded-secure-boot \
-        --shielded-vtpm \
-        --shielded-integrity-monitoring \
-        --labels=goog-ops-agent-policy=v2-x86-template-1-4-0,goog-ec-src=vm_add-gcloud \
-        --reservation-affinity=any
+  # Use Google Cloud interface instead
+  # create-airflow-vm-instance:
+  #   deps: [set-main-account-as-default-gcp-account]
+  #   desc: Create GCP VM that will be used to run Airflow Jobs
+  #   cmds:
+  #     - echo "Provisioning Google Cloud VM"
+  #     - gcloud compute instances create airflow-$ENVIRONMENT-vm-euwe4a-debian-408f \
+  #       --project=$GCLOUD_PROJECT \
+  #       --zone=$GCLOUD_DEFAULT_ZONE \
+  #       --region=$GCLOUD_DEFAULT_REGION \
+  #       --machine-type=e2-micro \
+  #       --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
+  #       --metadata=enable-osconfig=TRUE \
+  #       --maintenance-policy=MIGRATE \
+  #       --provisioning-model=STANDARD \
+  #       --service-account={{.SERVICE_ACCOUNT}}@$GCLOUD_PROJECT.iam.gserviceaccount.com \
+  #       --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append \
+  #       --create-disk=auto-delete=yes,boot=yes,device-name=airflow-$ENVIRONMENT-vm-euwe4a-debian-408f,image=projects/debian-cloud/global/images/debian-12-bookworm-v20250513,mode=rw,size=10,type=pd-balanced \
+  #       --no-shielded-secure-boot \
+  #       --shielded-vtpm \
+  #       --shielded-integrity-monitoring \
+  #       --reservation-affinity=any
 
   setup-airflow-vm:
     uv run playwright install
     # Install UV
     # Install Airflow
+
+  ssh-add-keys-to-vm:
+    desc: Add Public SSH Key to all VM instances in a GCP Project
+    dir: ../../.ssh
+    cmds:
+      - echo "Current directory:"
+      - pwd
+      - gcloud compute os-login ssh-keys add --key-file=id_rsa.pub --project=$GCLOUD_PROJECT
+
+  ssh-into-airflow-vm:
+    desc: SSH into Airflow GCP VM
+    dir: ../../.ssh
+    cmds:
+      - echo "Current directory:"
+      - pwd
+      - ssh -i id_rsa emarcphilipp_gmail_com@$GCLOUD_AIRFLOW_VM_EXTERNAL_IP
