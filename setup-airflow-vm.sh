@@ -1,6 +1,6 @@
 # Install Go
-sudo apt get update
-sudo apt get install golang-go
+sudo apt-get update
+sudo apt-get install golang-go
 go version
 # Install Taskfile
 go install github.com/go-task/task/v3/cmd/task@latest
