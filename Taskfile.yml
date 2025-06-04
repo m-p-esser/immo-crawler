@@ -32,10 +32,7 @@ tasks:
     desc: Enable GCP Services required for this repo 
     cmds:
       - echo "Enabling GCP services"
-      - for: [
-        'storage-component.googleapis.com', 
-        'secretmanager.googleapis.com',
-        'compute.googleapis.com']
+      - for: ['storage-component.googleapis.com', 'secretmanager.googleapis.com','compute.googleapis.com']
         cmd: gcloud services enable {{.ITEM}}
 
   create-service-account:
@@ -58,8 +55,7 @@ tasks:
     desc: Give Service accounts access rights for GCP Services
     cmds:
       - echo "Bind IAM Policies to Service account {{.SERVICE_ACCOUNT}}"
-      - for: [
-        'roles/storage.admin', 'roles/secretmanager.secretAccessor', 'roles/compute.admin']
+      - for: ['roles/storage.admin', 'roles/secretmanager.secretAccessor', 'roles/compute.admin']
         cmd: gcloud projects add-iam-policy-binding $GCLOUD_PROJECT --member=serviceAccount:{{.SERVICE_ACCOUNT}}@{{.GCLOUD_PROJECT}}.iam.gserviceaccount.com --role={{.ITEM}}
 
 # Commands to interacte with Google Cloud VM    
@@ -84,7 +80,6 @@ tasks:
       - pwd
       - ssh -i id_rsa emarcphilipp_gmail_com@$GCLOUD_AIRFLOW_VM_EXTERNAL_IP
 
-# Commands to interact with Docker
-  build-airflow-docker-image:
-   docker build -t $GCLOUD_REGION
-  # Continue https://www.perplexity.ai/search/how-can-i-enable-compute-engin-WLQaNWY1QIS8DmQyunaboQ
+  build-image:
+   docker compose build
+   # Maybe add steps to upload image to GCP (?)
